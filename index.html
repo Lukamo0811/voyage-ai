@@ -197,7 +197,7 @@
   // ══════════════════════════════════════════════════
   // ⚙️  CONFIGURATION — COLLE TA CLÉ API ICI
   // ══════════════════════════════════════════════════
-  const API_KEY = "AIzaSyAVlA379sHBNqfLhwlLmX3B6r4EJjy7mIg";
+  const API_KEY = "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";
   // ══════════════════════════════════════════════════
 
   const state = { ambiance: [], destinations: [], selected: null, form: {} };
@@ -287,10 +287,15 @@ Estime des prix réalistes 2025-2026. Réponds UNIQUEMENT avec un JSON valide sa
         throw new Error('Clé API non configurée');
       }
 
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1500 } })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          temperature: 0.7,
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }]
+        })
       });
 
       if (!resp.ok) {
@@ -299,9 +304,9 @@ Estime des prix réalistes 2025-2026. Réponds UNIQUEMENT avec un JSON valide sa
       }
 
       const data = await resp.json();
-      if (!data.candidates || !data.candidates[0]) throw new Error('Réponse vide de Gemini');
+      if (!data.choices || !data.choices[0]) throw new Error('Réponse vide de Groq');
 
-      let text = data.candidates[0].content.parts[0].text;
+      let text = data.choices[0].message.content;
       text = text.replace(/```json|```/g, '').trim();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('Format JSON invalide');
