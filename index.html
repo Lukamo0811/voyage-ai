@@ -273,13 +273,15 @@
     showScreen('loading');
     state.form = { departure, d1, d2, budget, pax, nights };
 
-    const prompt = `Tu es un expert en voyages. Propose exactement 4 destinations adaptées:
-- Ambiances: ${state.ambiance.join(', ')}
-- Départ: ${departure} | Du ${d1} au ${d2} (${nights} nuits)
-- Budget total: ${budget}€ pour ${pax} voyageur(s) — soit ~${Math.round(budget/pax)}€/personne
+    const prompt = `You are a travel expert. Return ONLY a raw JSON object, no markdown, no backticks, no explanation, no text before or after. Just the JSON.
 
-Estime des prix réalistes 2025-2026. Réponds UNIQUEMENT avec un JSON valide sans backticks ni markdown:
-{"destinations":[{"city":"","country":"","emoji":"","description":"2 phrases enthousiasmes","flightPrice":0,"hotelPricePerNight":0,"totalEstimate":0,"weather":"ex: 26°C ☀️","activities":["","","","",""],"imageQuery":"city travel landmark landscape"}]}`;
+Suggest 4 travel destinations for:
+- Moods: ${state.ambiance.join(', ')}
+- Departure: ${departure}, from ${d1} to ${d2} (${nights} nights)
+- Budget: ${budget} EUR for ${pax} traveler(s)
+
+JSON format (fill all fields, use realistic 2025-2026 prices):
+{"destinations":[{"city":"string","country":"string","emoji":"string","description":"string (2 enthusiastic sentences in French)","flightPrice":number,"hotelPricePerNight":number,"totalEstimate":number,"weather":"string ex: 26°C soleil","activities":["string","string","string","string","string"],"imageQuery":"string (3 english keywords for unsplash)"}]}`;
 
     try {
       // Vérification clé API
@@ -307,16 +309,23 @@ Estime des prix réalistes 2025-2026. Réponds UNIQUEMENT avec un JSON valide sa
       if (!data.choices || !data.choices[0]) throw new Error('Réponse vide de Groq');
 
       let text = data.choices[0].message.content;
-      text = text.replace(/```json|```/g, '').trim();
+      // Nettoyage agressif du texte
+      text = text.replace(/```json|```/gi, '').trim();
+      // Extraire uniquement le bloc JSON
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Format JSON invalide');
-      state.destinations = JSON.parse(jsonMatch[0]).destinations;
+      if (!jsonMatch) throw new Error('Réponse non JSON reçue');
+      const cleaned = jsonMatch[0]
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ') // caractères de contrôle
+        .replace(/,\s*([}\]])/g, '$1'); // virgules trailing
+      const parsed = JSON.parse(cleaned);
+      if (!parsed.destinations || !parsed.destinations.length) throw new Error('Destinations manquantes');
+      state.destinations = parsed.destinations;
       renderDestinations();
       showScreen('destinations');
     } catch(e) {
       showScreen('form');
       errEl.style.display = 'block';
-      errEl.textContent = `❌ Erreur : ${e.message}. Vérifie ta clé API Gemini sur aistudio.google.com.`;
+      errEl.textContent = `❌ Erreur : ${e.message}. Vérifie ta clé API Groq sur console.groq.com.`;
       console.error('Détail erreur:', e);
     }
   });
