@@ -197,7 +197,7 @@
   // ══════════════════════════════════════════════════
   // ⚙️  CONFIGURATION — COLLE TA CLÉ API ICI
   // ══════════════════════════════════════════════════
-  const API_KEY = "AIzaSyAVlA379sHBNqfLhwlLmX3B6r4EJjy7mIg" ;
+  const API_KEY = "AIzaSyAVlA379sHBNqfLhwlLmX3B6r4EJjy7mIg";
   // ══════════════════════════════════════════════════
 
   const state = { ambiance: [], destinations: [], selected: null, form: {} };
@@ -282,21 +282,37 @@ Estime des prix réalistes 2025-2026. Réponds UNIQUEMENT avec un JSON valide sa
 {"destinations":[{"city":"","country":"","emoji":"","description":"2 phrases enthousiasmes","flightPrice":0,"hotelPricePerNight":0,"totalEstimate":0,"weather":"ex: 26°C ☀️","activities":["","","","",""],"imageQuery":"city travel landmark landscape"}]}`;
 
     try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+      // Vérification clé API
+      if (!API_KEY || API_KEY.includes('REMPLACE')) {
+        throw new Error('Clé API non configurée');
+      }
+
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1024 } })
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1500 } })
       });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(`API ${resp.status}: ${errData?.error?.message || 'Erreur inconnue'}`);
+      }
+
       const data = await resp.json();
+      if (!data.candidates || !data.candidates[0]) throw new Error('Réponse vide de Gemini');
+
       let text = data.candidates[0].content.parts[0].text;
       text = text.replace(/```json|```/g, '').trim();
-      state.destinations = JSON.parse(text).destinations;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Format JSON invalide');
+      state.destinations = JSON.parse(jsonMatch[0]).destinations;
       renderDestinations();
       showScreen('destinations');
     } catch(e) {
       showScreen('form');
       errEl.style.display = 'block';
-      errEl.textContent = 'Erreur de recherche. Vérifie ta clé API et réessaie.';
+      errEl.textContent = `❌ Erreur : ${e.message}. Vérifie ta clé API Gemini sur aistudio.google.com.`;
+      console.error('Détail erreur:', e);
     }
   });
 
